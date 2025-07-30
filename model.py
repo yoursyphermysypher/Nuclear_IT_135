@@ -15,29 +15,16 @@ all_lamps = []
 for file in all_files:
     file_path = os.path.join(folder_path, file)
     lamp_name = os.path.splitext(file)[0]
-
     df = pd.read_csv(file_path)
     df = df.rename(columns={
-        'length': 'Wavelength',
+        'lenght': 'Wavelength',
         'intensive': 'Spectral irradiance',
-        'cumulative_photon_flux': 'Cumulative photon flux'
+        'cumulative': 'Cumulative photon flux'
     })
     df.insert(0, 'Lamp', lamp_name)
+    df = df.apply(pd.to_numeric, errors = 'coerce').dropna()
     all_lamps.append(df)
 lamps_df = pd.concat(all_lamps, ignore_index = True)
-
-# sun_df = pd.DataFrame({
-#     'Wavelength': [400, 500, 600],
-#     'Spectral irradiance': [1.0, 0.8, 0.6],
-#     'Cumulative photon flux': [0.5, 0.4, 0.3]
-# })
-
-# lamps_df = pd.DataFrame({
-#     'Lamp': [1, 1, 1, 2, 2, 2],
-#     'Wavelength': [400, 500, 600, 400, 500, 600],
-#     'Spectral irradiance': [0.5, 0.4, 0.3, 0.2, 0.3, 0.4],
-#     'Cumulative photon flux': [0.25, 0.2, 0.15, 0.1, 0.15, 0.2]
-# })
 
 
 wavelengths = sun_df['Wavelength'].values
@@ -87,35 +74,21 @@ for lambda_reg in lambda_candidates:
     rel_error = np.linalg.norm(A @ x_val - b) / np.linalg.norm(b)
     nonzero_count = np.sum(x_val > 1e-6)
 
-    # print(f'λ={lambda_reg:.5f} → ошибка={rel_error:.4f}, ненулей={nonzero_count}')
-
     if rel_error <= 0.15 and nonzero_count < min_nonzero:
         best_solution = x_val
         best_lambda = lambda_reg
         min_nonzero = nonzero_count
 
 
-# todo
 if best_solution is not None:
-    print('\nНайдено оптимальное решение:')
-    print(f'Лучшее λ: {best_lambda:.5f}')
-    print(f'Относительная ошибка: {np.linalg.norm(A @ best_solution - b) / np.linalg.norm(b):.4f}')
-    print(f'Число используемых ламп: {np.sum(best_solution > 1e-6)}')
-    print('Количество каждой лампы:')
-    for i, val in enumerate(best_solution):
-        if val > 1e-6:
-            print(f'  Лампа {lamps_types[i]}: {val:.4f}')
+    results = pd.DataFrame({
+        'Lamp': lamps_types,
+        'Coefficient': best_solution
+    })
+    results = results[results['Coefficient'] > 1e-6].reset_index(drop = True)
+    print(results)
 else:
     print('\nНе найдено решение с ошибкой ≤ 15%')
-
-
-results = pd.DataFrame({
-    'Lamp': lamps_types,
-    'Coefficient': best_solution
-})
-
-results = results[results['Coefficient'] > 1e-6].reset_index(drop = True)
-print(results)
 
 
 reconstructed = A @ best_solution
